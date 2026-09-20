@@ -18,6 +18,7 @@ UserSettings/
 MemoryCaptures/
 
 # Unity generated files
+*.meta
 *.csproj
 *.sln
 *.suo
