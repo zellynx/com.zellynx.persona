@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.LowLevelPhysics;
 
 namespace Character.Mobility
 {
@@ -34,16 +35,16 @@ namespace Character.Mobility
             }
         }
 
-        [SerializeField] private GeometryTypes _geometryType = GeometryTypes.Capsule;
+        [SerializeField] private GeometryType _geometryType = GeometryType.Capsule;
 
-        [SerializeField] private CapsuleGeometrySettings _capsuleGeometrySettings = CapsuleGeometrySettings.Default;
-        [SerializeField] private SphereGeometrySettings _sphereGeometrySettings = SphereGeometrySettings.Default;
-        [SerializeField] private BoxGeometrySettings _boxGeometrySettings = BoxGeometrySettings.Default;
+        [SerializeField] private CapsuleColliderSettings _capsuleGeometrySettings = CapsuleColliderSettings.Default;
+        [SerializeField] private SphereColliderSettings _sphereGeometrySettings = SphereColliderSettings.Default;
+        [SerializeField] private BoxColliderSettings _boxGeometrySettings = BoxColliderSettings.Default;
 
         [SerializeField] private CharacterBodySettings _settings = new();
 
-        private CharacterBodyBasis _basis;
-        private bool _basisInitialized;
+        private Orientation _orientation;
+        private bool _orientationInitialized;
 
         private Rigidbody _rigidbody;
         private Collider _collider;
@@ -118,7 +119,7 @@ namespace Character.Mobility
         /// <summary>
         /// Selected CharacterBody GeometryType.
         /// </summary>
-        public GeometryTypes GeometryType => _geometryType;
+        public GeometryType GeometryType => _geometryType;
 
         /// <summary>
         /// The managed rigidbody currently used by the body for all movement.
@@ -169,16 +170,16 @@ namespace Character.Mobility
         /// reconstructed from Transform every frame. CharacterBody uses the basis
         /// during simulation to determine the physical orientation of the body.
         /// </summary>
-        public CharacterBodyBasis Basis {
-            get => _basis;
+        public Orientation Orientation {
+            get => _orientation;
 
             set {
                 if (!value.IsValid) {
                     throw new ArgumentException(
-                        "CharacterBody.Basis must contain normalized, perpendicular Up and Forward directions.");
+                        "CharacterBody.Orientation must contain normalized, perpendicular Up and Forward directions.");
                 }
 
-                _basis = value;
+                _orientation = value;
             }
         }
 
@@ -219,15 +220,15 @@ namespace Character.Mobility
             var defaultMatrix = Gizmos.matrix;
 
             switch (_geometryType) {
-                case GeometryTypes.Sphere:
+                case GeometryType.Sphere:
                     DrawSphereGizmo();
                     break;
 
-                case GeometryTypes.Box:
+                case GeometryType.Box:
                     DrawBoxGizmo();
                     break;
 
-                case GeometryTypes.Capsule:
+                case GeometryType.Capsule:
                     DrawCapsuleGizmo();
                     break;
             }
@@ -236,10 +237,10 @@ namespace Character.Mobility
         }
 
         private Quaternion ResolveBasisRotation(Quaternion fallbackRotation) {
-            if (!_basis.IsValid)
+            if (!_orientation.IsValid)
                 return fallbackRotation;
 
-            var basisRotation = Quaternion.LookRotation(_basis.Forward, _basis.Up);
+            var basisRotation = Quaternion.LookRotation(_orientation.Forward, _orientation.Up);
             return ConstrainRotationForShape(basisRotation);
         }
 
@@ -247,7 +248,7 @@ namespace Character.Mobility
             Gizmos.color = new Color(0.4f, 1.0f, 0.4f, 0.8f);
 
             if (_sphereCollider != null) {
-                CharacterPhysicsQueries.GetSphereWorldData(_sphereCollider, transform.position, transform.rotation,
+                MobilityPhysics.GetSphereWorldData(_sphereCollider, transform.position, transform.rotation,
                     out var worldCenter, out var radius);
                 Gizmos.DrawWireSphere(worldCenter, radius);
                 return;
@@ -263,7 +264,7 @@ namespace Character.Mobility
         /// Resolves the semantic up for editor-time visualization, before Awake creates the basis.
         /// </summary>
         private Vector3 GetVisualizationUp() {
-            return _basisInitialized ? _basis.Up : transform.up;
+            return _orientationInitialized ? _orientation.Up : transform.up;
         }
 
         private void DrawBoxGizmo() {
@@ -275,7 +276,7 @@ namespace Character.Mobility
             Vector3 center;
             Vector3 halfExtents;
             if (_boxCollider != null) {
-                CharacterPhysicsQueries.GetBoxWorldData(_boxCollider, transform.position, uprightRotation,
+                MobilityPhysics.GetBoxWorldData(_boxCollider, transform.position, uprightRotation,
                     out center, out _, out halfExtents);
             }
             else {
@@ -298,7 +299,7 @@ namespace Character.Mobility
             Vector3 worldCenter;
 
             if (_capsuleCollider != null) {
-                CharacterPhysicsQueries.GetCapsuleWorldData(_capsuleCollider, transform.position, transform.rotation,
+                MobilityPhysics.GetCapsuleWorldData(_capsuleCollider, transform.position, transform.rotation,
                     out point1, out point2, out radius);
                 worldCenter = (point1 + point2) * 0.5f;
             }
@@ -339,10 +340,10 @@ namespace Character.Mobility
         }
 
         private void Reset() {
-            _geometryType = GeometryTypes.Capsule;
-            _capsuleGeometrySettings = CapsuleGeometrySettings.Default;
-            _sphereGeometrySettings = SphereGeometrySettings.Default;
-            _boxGeometrySettings = BoxGeometrySettings.Default;
+            _geometryType = GeometryType.Capsule;
+            _capsuleGeometrySettings = CapsuleColliderSettings.Default;
+            _sphereGeometrySettings = SphereColliderSettings.Default;
+            _boxGeometrySettings = BoxColliderSettings.Default;
 
             ValidateSerializedData();
         }
@@ -352,15 +353,15 @@ namespace Character.Mobility
         /// the basis Up; pitch and roll are stripped so the box can never tip over.
         /// </summary>
         private Quaternion ConstrainRotationForShape(Quaternion rotation) {
-            return _geometryType == GeometryTypes.Box
-                ? MobilityMath.ConstrainToUprightRotation(rotation, _basis.Up)
+            return _geometryType == GeometryType.Box
+                ? MobilityMath.ConstrainToUprightRotation(rotation, _orientation.Up)
                 : rotation;
         }
 
         private void Awake() {
             // 1. Semantic character frame
-            _basis = CharacterBodyBasis.FromTransform(transform);
-            _basisInitialized = true;
+            _orientation = Orientation.FromTransform(transform);
+            _orientationInitialized = true;
 
             // 2. Allocate memory buffer context for the Solvers
             Context = new SolverContext(); //Change name !!
@@ -393,7 +394,7 @@ namespace Character.Mobility
                 Mathf.Clamp01((Time.time - _lastInterpolationStartTime) / _lastInterpolationDeltaTime);
             ApplyPresentationPose(
                 Vector3.Lerp(_previousSimulationPose.Position, _simulationPose.Position, interpolationFactor),
-                Quaternion.Slerp(_previousSimulationPose.Orientation, _simulationPose.Orientation,
+                Quaternion.Slerp(_previousSimulationPose.Attitude, _simulationPose.Attitude,
                     interpolationFactor));
         }
 
@@ -414,19 +415,19 @@ namespace Character.Mobility
             }
 
             switch (_geometryType) {
-                case GeometryTypes.Capsule:
+                case GeometryType.Capsule:
                     _capsuleCollider = gameObject.AddComponent<CapsuleCollider>();
                     _capsuleGeometrySettings.ApplyTo(_capsuleCollider);
                     _collider = _capsuleCollider;
                     break;
 
-                case GeometryTypes.Sphere:
+                case GeometryType.Sphere:
                     _sphereCollider = gameObject.AddComponent<SphereCollider>();
                     _sphereGeometrySettings.ApplyTo(_sphereCollider);
                     _collider = _sphereCollider;
                     break;
 
-                case GeometryTypes.Box:
+                case GeometryType.Box:
                     _boxCollider = gameObject.AddComponent<BoxCollider>();
                     _boxGeometrySettings.ApplyTo(_boxCollider);
                     _collider = _boxCollider;
@@ -456,7 +457,7 @@ namespace Character.Mobility
 
         public void AddVelocity(Vector3 velocityChange, bool projectOnGroundIfStable = false) {
             if (projectOnGroundIfStable && _isGrounded) {
-                velocityChange = Vector3.ProjectOnPlane(velocityChange, _basis.Up);
+                velocityChange = Vector3.ProjectOnPlane(velocityChange, _orientation.Up);
             }
 
             _velocity.Linear += velocityChange;
@@ -511,8 +512,8 @@ namespace Character.Mobility
                 Velocity = _velocity,
                 IsGrounded = _isGrounded,
                 GroundNormal = _groundingReport.GroundNormal,
-                BasisUp = _basis.Up,
-                BasisForward = _basis.Forward,
+                BasisUp = _orientation.Up,
+                BasisForward = _orientation.Forward,
                 ForceUngroundTimeRemaining = _forceUngroundTimeRemaining,
                 WasGrounded = _wasGrounded
             };
@@ -522,14 +523,14 @@ namespace Character.Mobility
         /// Restores a previously captured simulation state.
         /// </summary>
         public void ApplyState(CharacterBodyState state) {
-            var restoredBasis = CharacterBodyBasis
+            var restoredOrientation = Orientation
                 .FromTransform(transform)
                 .WithUpDirection(state.BasisUp)
                 .WithForwardDirection(state.BasisForward);
 
-            _basis = restoredBasis;
+            _orientation = restoredOrientation;
 
-            Quaternion rotation = ConstrainRotationForShape(state.Pose.Orientation);
+            Quaternion rotation = ConstrainRotationForShape(state.Pose.Attitude);
 
             InitializeSimulationPose(state.Pose.Position, rotation);
 
@@ -573,11 +574,11 @@ namespace Character.Mobility
             report.OuterNormal = normal;
             report.LedgeGroundNormal = normal;
             report.IsStable =
-                MobilityMath.IsStableNormal(normal, _basis.Up, _settings.StepAndSlopeSettings.SlopeLimit) &&
+                MobilityMath.IsStableNormal(normal, _orientation.Up, _settings.StepAndSlopeSettings.SlopeLimit) &&
                 layerStable;
 
             if (_settings.StepAndSlopeSettings.LedgeHandling && col != null) {
-                if (_geometryType == GeometryTypes.Box) {
+                if (_geometryType == GeometryType.Box) {
                     EvaluateBoxSupport(ref report, position, rotation, hitPoint);
                 }
                 else {
@@ -607,7 +608,7 @@ namespace Character.Mobility
 
         private void EvaluateRoundedLedge(ref HitStabilityReport report, Vector3 position, Quaternion rotation,
             Vector3 normal) {
-            var up = _basis.Up;
+            var up = _orientation.Up;
             var axis = Vector3.Cross(up, normal);
             if (axis.sqrMagnitude <= 0.0001f) {
                 return;
@@ -615,11 +616,11 @@ namespace Character.Mobility
 
             axis.Normalize();
             var outward = Vector3.Cross(axis, up).normalized;
-            var supportDistance = CharacterPhysicsQueries.GetSupportDistance(_collider, position, rotation, outward);
-            var sampleOrigin = CharacterPhysicsQueries.GetWorldCenter(_collider, position, rotation) +
+            var supportDistance = MobilityPhysics.GetSupportDistance(_collider, position, rotation, outward);
+            var sampleOrigin = MobilityPhysics.GetWorldCenter(_collider, position, rotation) +
                                (outward * supportDistance);
 
-            if (!CharacterPhysicsQueries.Raycast(sampleOrigin + (up * 0.05f), -up,
+            if (!MobilityPhysics.Raycast(sampleOrigin + (up * 0.05f), -up,
                     GetEffectiveStepOffset(position, rotation) + 0.25f, _settings.CollidableLayers,
                     QueryTriggerInteraction.Ignore, Context.SweepResults, ShouldCollideWith, out RaycastHit ledgeHit)) {
                 report.LedgeDetected = true;
@@ -641,13 +642,13 @@ namespace Character.Mobility
 
         private void EvaluateBoxSupport(ref HitStabilityReport report, Vector3 position, Quaternion rotation,
             Vector3 hitPoint) {
-            var up = _basis.Up;
+            var up = _orientation.Up;
             var down = -up;
-            CharacterPhysicsQueries.GetBoxWorldData(_boxCollider, position, rotation, out var worldCenter,
+            MobilityPhysics.GetBoxWorldData(_boxCollider, position, rotation, out var worldCenter,
                 out var boxRotation, out var halfExtents);
 
             var planarExtent =
-                CharacterPhysicsQueries.GetMinimalPlanarSupportDistance(_boxCollider, position, rotation, up);
+                MobilityPhysics.GetMinimalPlanarSupportDistance(_boxCollider, position, rotation, up);
             var horizontalInset =
                 Mathf.Min(GetEffectiveLedgeDistanceThreshold(position, rotation), planarExtent * 0.75f);
             horizontalInset = Mathf.Max(0.01f, horizontalInset);
@@ -723,8 +724,8 @@ namespace Character.Mobility
 
         private bool TrySampleBoxSupport(Vector3 worldCenter, Quaternion rotation, Vector3 offset, Vector3 down,
             float rayDistance, ref Vector3 accumulatedNormal, ref int supportedSamples) {
-            var sampleOrigin = worldCenter + rotation * offset + _basis.Up * 0.05f;
-            if (!CharacterPhysicsQueries.Raycast(sampleOrigin, down, rayDistance, _settings.CollidableLayers,
+            var sampleOrigin = worldCenter + rotation * offset + _orientation.Up * 0.05f;
+            if (!MobilityPhysics.Raycast(sampleOrigin, down, rayDistance, _settings.CollidableLayers,
                     QueryTriggerInteraction.Ignore, Context.SweepResults, ShouldCollideWith,
                     out var supportHit)) {
                 return false;
@@ -736,13 +737,13 @@ namespace Character.Mobility
         }
 
         internal float GetEffectiveStepOffset(Vector3 position, Quaternion rotation) {
-            var supportUp = CharacterPhysicsQueries.GetSupportDistance(_collider, position, rotation, _basis.Up);
+            var supportUp = MobilityPhysics.GetSupportDistance(_collider, position, rotation, _orientation.Up);
             return Mathf.Min(_settings.StepAndSlopeSettings.StepOffset, Mathf.Max(0f, supportUp - _settings.SkinWidth));
         }
 
         internal float GetEffectiveLedgeDistanceThreshold(Vector3 position, Quaternion rotation) {
             return Mathf.Min(_settings.StepAndSlopeSettings.MaxStableDistanceFromLedge,
-                CharacterPhysicsQueries.GetMinimalPlanarSupportDistance(_collider, position, rotation, _basis.Up));
+                MobilityPhysics.GetMinimalPlanarSupportDistance(_collider, position, rotation, _orientation.Up));
         }
 
         internal void ReportCollision(RaycastHit hit, HitStabilityReport stabilityReport, bool isGroundHit) {
@@ -799,7 +800,7 @@ namespace Character.Mobility
             var displacement = targetPose.Position - _simulationPose.Position;
 
             var angularVelocity =
-                CalculateAngularVelocity(_simulationPose.Orientation, targetPose.Orientation, deltaTime);
+                CalculateAngularVelocity(_simulationPose.Attitude, targetPose.Attitude, deltaTime);
 
             var requestedVelocity = new Velocity {
                 Linear = displacement / deltaTime,
@@ -825,8 +826,8 @@ namespace Character.Mobility
         }
 
         private Velocity ApplyRequestedVelocity(Velocity current, Velocity requested) {
-            var currentVertical = Vector3.Project(current.Linear, _basis.Up);
-            var requestedPlanar = Vector3.ProjectOnPlane(requested.Linear, _basis.Up);
+            var currentVertical = Vector3.Project(current.Linear, _orientation.Up);
+            var requestedPlanar = Vector3.ProjectOnPlane(requested.Linear, _orientation.Up);
 
             current.Linear = requestedPlanar + currentVertical;
             current.Angular = requested.Angular;
@@ -872,7 +873,7 @@ namespace Character.Mobility
 
             var rotation =
                 ResolveBasisRotation(
-                    simulationPose.Orientation
+                    simulationPose.Attitude
                 );
 
             if (requestedVelocity.Angular.sqrMagnitude >
@@ -897,7 +898,7 @@ namespace Character.Mobility
             UpdateBasisForwardFromOrientation(
                 rotation
             );
-            
+
             // ------------------------------------------------------------
 // Refresh grounding at the start of this simulation step.
 // This tells CharacterBody whether its current position is
@@ -908,7 +909,7 @@ namespace Character.Mobility
                 _settings.StepAndSlopeSettings.MaxVelocityForLedgeSnap <= 0f ||
                 Vector3.ProjectOnPlane(
                     requestedVelocity.Linear,
-                    _basis.Up
+                    _orientation.Up
                 ).magnitude <=
                 _settings.StepAndSlopeSettings.MaxVelocityForLedgeSnap;
 
@@ -963,10 +964,10 @@ namespace Character.Mobility
 
             if (_groundingReport.IsStableOnGround) {
                 workingVelocity.Linear =
-                    VelocityProjectionSolver.ProjectForGrounding(
+                    MobilityMath.ProjectVelocityForGrounding(
                         workingVelocity.Linear,
                         _groundingReport.GroundNormal,
-                        _basis.Up
+                        _orientation.Up
                     );
             }
             else if (_settings.UseGravity) {
@@ -1039,7 +1040,7 @@ namespace Character.Mobility
             worldVelocity.Linear =
                 workingVelocity.Linear +
                 attachedAnchorVelocity.Linear;
-            
+
             // ------------------------------------------------------------
 // Refresh grounding at the resulting position.
 // This is what detects walking beyond a finite floor.
@@ -1060,8 +1061,8 @@ namespace Character.Mobility
                 _groundingReport.SnappingPrevented = true;
                 _groundingReport.IsStableOnGround = false;
             }
-            
-            
+
+
             // ------------------------------------------------------------
 // Snap to nearby stable ground.
 // Snap is only allowed when the simulation step started grounded.
@@ -1088,10 +1089,10 @@ namespace Character.Mobility
                     // The character has been placed onto stable ground.
                     // Remove any velocity directed into that ground.
                     worldVelocity.Linear =
-                        VelocityProjectionSolver.ProjectForGrounding(
+                        MobilityMath.ProjectVelocityForGrounding(
                             worldVelocity.Linear,
                             _groundingReport.GroundNormal,
-                            _basis.Up
+                            _orientation.Up
                         );
                 }
             }
@@ -1102,7 +1103,7 @@ namespace Character.Mobility
 
             CharacterBodyAnchor previousPlatformAnchor =
                 _currentPlatformAnchor;
-            
+
             _currentPlatformAnchor =
                 PlatformAttachmentSolver.ResolveAnchor(
                     _groundingReport
@@ -1111,7 +1112,7 @@ namespace Character.Mobility
             _isGrounded =
                 _groundingReport.FoundAnyGround &&
                 _groundingReport.IsStableOnGround;
-            
+
             if (!_isGrounded &&
                 previousPlatformAnchor != null &&
                 !ReferenceEquals(
@@ -1150,7 +1151,7 @@ namespace Character.Mobility
             _simulationPose =
                 new Pose {
                     Position = position,
-                    Orientation = rotation
+                    Attitude = rotation
                 };
 
             _simulationPoseInitialized = true;
@@ -1185,11 +1186,22 @@ namespace Character.Mobility
         private void UpdateBasisForwardFromOrientation(Quaternion orientation) {
             var facing = orientation * Vector3.forward;
 
-            _basis = _basis.WithForwardDirection(facing);
+            _orientation = _orientation.WithForwardDirection(facing);
         }
+
+        private static bool IsSupportedGeometryType(GeometryType geometryType) {
+            return geometryType == GeometryType.Capsule ||
+                   geometryType == GeometryType.Sphere ||
+                   geometryType == GeometryType.Box;
+        }
+
 
         private void ValidateSerializedData() {
             _settings ??= new CharacterBodySettings();
+
+            if (!IsSupportedGeometryType(_geometryType)) {
+                _geometryType = GeometryType.Capsule;
+            }
 
             _capsuleGeometrySettings.Validate();
             _sphereGeometrySettings.Validate();
@@ -1198,15 +1210,15 @@ namespace Character.Mobility
             // Extents represent the actual supported colliders. The capsule is the upright
             // Y-axis invariant shape; its collider orientation does not follow Basis.Up.
             var maxHorizontalExtent = _geometryType switch {
-                GeometryTypes.Capsule => _capsuleGeometrySettings.Radius,
-                GeometryTypes.Sphere => _sphereGeometrySettings.Radius,
-                GeometryTypes.Box => Mathf.Min(_boxGeometrySettings.Size.x, _boxGeometrySettings.Size.z) * 0.5f,
+                GeometryType.Capsule => _capsuleGeometrySettings.Radius,
+                GeometryType.Sphere => _sphereGeometrySettings.Radius,
+                GeometryType.Box => Mathf.Min(_boxGeometrySettings.Size.x, _boxGeometrySettings.Size.z) * 0.5f,
                 _ => 0.5f
             };
             var maxVerticalExtent = _geometryType switch {
-                GeometryTypes.Capsule => _capsuleGeometrySettings.Height * 0.5f,
-                GeometryTypes.Sphere => _sphereGeometrySettings.Radius,
-                GeometryTypes.Box => _boxGeometrySettings.Size.y * 0.5f,
+                GeometryType.Capsule => _capsuleGeometrySettings.Height * 0.5f,
+                GeometryType.Sphere => _sphereGeometrySettings.Radius,
+                GeometryType.Box => _boxGeometrySettings.Size.y * 0.5f,
                 _ => 1f
             };
 
@@ -1215,9 +1227,9 @@ namespace Character.Mobility
 
         private void InitializeSimulationPose(Vector3 position, Quaternion rotation) {
             _simulationPose.Position = position;
-            _simulationPose.Orientation = rotation;
+            _simulationPose.Attitude = rotation;
             _previousSimulationPose.Position = position;
-            _previousSimulationPose.Orientation = rotation;
+            _previousSimulationPose.Attitude = rotation;
             _lastInterpolationStartTime = Time.time;
             _lastInterpolationDeltaTime = Mathf.Max(Time.fixedDeltaTime, Mathf.Epsilon);
             _simulationPoseInitialized = true;
@@ -1228,7 +1240,7 @@ namespace Character.Mobility
                 return;
             }
 
-            ApplyPresentationPose(_simulationPose.Position, _simulationPose.Orientation);
+            ApplyPresentationPose(_simulationPose.Position, _simulationPose.Attitude);
         }
 
         private void ApplySimulationPose(Vector3 position, Quaternion rotation) {
@@ -1270,7 +1282,7 @@ namespace Character.Mobility
                 }
 
                 if (hit.StableOnHit) {
-                    correction = Vector3.ProjectOnPlane(correction, _basis.Up);
+                    correction = Vector3.ProjectOnPlane(correction, _orientation.Up);
                 }
 
                 accumulatedCorrection += correction;
@@ -1291,7 +1303,7 @@ namespace Character.Mobility
 
         internal void ReceiveExternalVelocityInfluence(Vector3 velocityChange, bool stableContact) {
             if (stableContact) {
-                velocityChange = Vector3.ProjectOnPlane(velocityChange, _basis.Up);
+                velocityChange = Vector3.ProjectOnPlane(velocityChange, _orientation.Up);
             }
 
             _velocity.Linear += velocityChange;
@@ -1309,9 +1321,9 @@ namespace Character.Mobility
                     continue;
                 }
 
-                var pushDirection = Vector3.ProjectOnPlane(-hit.HitNormal, _basis.Up).normalized;
+                var pushDirection = Vector3.ProjectOnPlane(-hit.HitNormal, _orientation.Up).normalized;
                 if (pushDirection.sqrMagnitude <= 0.0001f) {
-                    pushDirection = Vector3.ProjectOnPlane(hit.HitVelocity - hit.RigidbodyVelocity, _basis.Up)
+                    pushDirection = Vector3.ProjectOnPlane(hit.HitVelocity - hit.RigidbodyVelocity, _orientation.Up)
                         .normalized;
                 }
 
@@ -1319,7 +1331,7 @@ namespace Character.Mobility
                     continue;
                 }
 
-                var speed = Vector3.ProjectOnPlane(hit.HitVelocity - hit.RigidbodyVelocity, _basis.Up).magnitude;
+                var speed = Vector3.ProjectOnPlane(hit.HitVelocity - hit.RigidbodyVelocity, _orientation.Up).magnitude;
                 var velocityChangeMagnitude = Mathf.Min(speed, _settings.MaxPushVelocityChange);
                 if (_settings.RigidbodyInteractionMode == CharacterBodyRigidbodyInteractionMode.SimulatedDynamic) {
                     var selfMass = Mathf.Max(_settings.SimulatedCharacterMass, 0.01f);
@@ -1329,7 +1341,7 @@ namespace Character.Mobility
 
                 var velocityChange = pushDirection * velocityChangeMagnitude;
                 if (hit.StableOnHit) {
-                    velocityChange = Vector3.ProjectOnPlane(velocityChange, _basis.Up);
+                    velocityChange = Vector3.ProjectOnPlane(velocityChange, _orientation.Up);
                 }
 
                 hit.Rigidbody.AddForceAtPosition(velocityChange, hit.HitPoint, ForceMode.VelocityChange);

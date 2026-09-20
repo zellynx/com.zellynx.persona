@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.LowLevelPhysics;
 
 namespace Character.Mobility
 {
@@ -7,9 +8,9 @@ namespace Character.Mobility
         public static CharacterGroundingReport GetDefaultReport(CharacterBody body)
         {
             CharacterGroundingReport report = default;
-            report.GroundNormal = body.Basis.Up;
-            report.InnerGroundNormal = body.Basis.Up;
-            report.OuterGroundNormal = body.Basis.Up;
+            report.GroundNormal = body.Orientation.Up;
+            report.InnerGroundNormal = body.Orientation.Up;
+            report.OuterGroundNormal = body.Orientation.Up;
             report.SnappingPrevented = body.IsForceUngrounded;
             return report;
         }
@@ -24,15 +25,15 @@ namespace Character.Mobility
 
         public static CharacterGroundingReport ProbeGround(CharacterBody body, Vector3 position, Quaternion rotation, float extraDistance, bool allowLedgeSnap, bool reportCollision) {
             CharacterGroundingReport report = GetDefaultReport(body);
-            return body.GeometryType == GeometryTypes.Box ? 
+            return body.GeometryType == GeometryType.Box ?
                 ProbeBoxGround(body, position, rotation, extraDistance, allowLedgeSnap, reportCollision, ref report)
                 : ProbeRoundedGround(body, position, rotation, extraDistance, allowLedgeSnap, reportCollision, ref report);
-            
+
         }
 
         private static CharacterGroundingReport ProbeRoundedGround(CharacterBody body, Vector3 position, Quaternion rotation, float extraDistance,
             bool allowLedgeSnap, bool reportCollision, ref CharacterGroundingReport report) {
-            Vector3 up = body.Basis.Up.normalized;
+            Vector3 up = body.Orientation.Up.normalized;
             Vector3 down = -up;
             float castDistance = Mathf.Max(body.Settings.SkinWidth + extraDistance, body.Settings.SkinWidth + 0.02f);
             Collider shape = body.ActiveCollider;
@@ -45,9 +46,9 @@ namespace Character.Mobility
                 position, rotation, allowLedgeSnap, ref foundHit, ref bestHit, ref bestStability);
 
             MobilityMath.GetPlanarAxes(up, out Vector3 tangentA, out Vector3 tangentB);
-            Vector3 worldCenter = CharacterPhysicsQueries.GetWorldCenter(shape, position, rotation);
-            float lateralOffsetA = CharacterPhysicsQueries.GetSupportDistance(shape, position, rotation, tangentA) * 0.5f;
-            float lateralOffsetB = CharacterPhysicsQueries.GetSupportDistance(shape, position, rotation, tangentB) * 0.5f;
+            Vector3 worldCenter = MobilityPhysics.GetWorldCenter(shape, position, rotation);
+            float lateralOffsetA = MobilityPhysics.GetSupportDistance(shape, position, rotation, tangentA) * 0.5f;
+            float lateralOffsetB = MobilityPhysics.GetSupportDistance(shape, position, rotation, tangentB) * 0.5f;
             TryUpdateRayBestHit(body, worldCenter + (tangentA * lateralOffsetA) + (up * 0.05f), down, castDistance + 0.05f,
                 position, rotation, allowLedgeSnap, ref foundHit, ref bestHit, ref bestStability);
             TryUpdateRayBestHit(body, worldCenter - (tangentA * lateralOffsetA) + (up * 0.05f), down, castDistance + 0.05f,
@@ -78,7 +79,7 @@ namespace Character.Mobility
 
         private static CharacterGroundingReport ProbeBoxGround(CharacterBody body, Vector3 position, Quaternion rotation, float extraDistance,
             bool allowLedgeSnap, bool reportCollision, ref CharacterGroundingReport report) {
-            Vector3 up = body.Basis.Up.normalized;
+            Vector3 up = body.Orientation.Up.normalized;
             Vector3 down = -up;
             float castDistance = Mathf.Max(body.Settings.SkinWidth + extraDistance, body.Settings.SkinWidth + 0.02f);
 
@@ -86,7 +87,7 @@ namespace Character.Mobility
             RaycastHit bestHit = default;
             HitStabilityReport bestStability = default;
 
-            if (CharacterPhysicsQueries.Cast(body.ActiveCollider, position + (up * 0.02f), rotation, body.Settings.SkinWidth,
+            if (MobilityPhysics.Cast(body.ActiveCollider, position + (up * 0.02f), rotation, body.Settings.SkinWidth,
                     down, castDistance + 0.02f, body.Settings.CollidableLayers, QueryTriggerInteraction.Ignore,
                     body.Context.SweepResults, body.ShouldCollideWith, out RaycastHit primaryHit))
             {
@@ -95,10 +96,10 @@ namespace Character.Mobility
                 foundHit = true;
             }
 
-            CharacterPhysicsQueries.GetBoxWorldData((BoxCollider)body.ActiveCollider, position, rotation, out var worldCenter,
+            MobilityPhysics.GetBoxWorldData((BoxCollider)body.ActiveCollider, position, rotation, out var worldCenter,
                 out var boxRotation, out var halfExtents);
             float supportInset =
-                Mathf.Max(0.01f, CharacterPhysicsQueries.GetMinimalPlanarSupportDistance(body.ActiveCollider, position, rotation, up) * 0.25f);
+                Mathf.Max(0.01f, MobilityPhysics.GetMinimalPlanarSupportDistance(body.ActiveCollider, position, rotation, up) * 0.25f);
             Vector3[] localOffsets =
             {
                 Vector3.down * halfExtents.y,
@@ -111,7 +112,7 @@ namespace Character.Mobility
             for (int i = 0; i < localOffsets.Length; i++)
             {
                 Vector3 origin = worldCenter + (boxRotation * localOffsets[i]) + (up * 0.05f);
-                if (!CharacterPhysicsQueries.Raycast(origin, down, castDistance + 0.05f, body.Settings.CollidableLayers,
+                if (!MobilityPhysics.Raycast(origin, down, castDistance + 0.05f, body.Settings.CollidableLayers,
                         QueryTriggerInteraction.Ignore, body.Context.SweepResults, body.ShouldCollideWith,
                         out RaycastHit supportHit))
                 {
@@ -159,7 +160,7 @@ namespace Character.Mobility
             ref RaycastHit bestHit,
             ref HitStabilityReport bestStability)
         {
-            if (!CharacterPhysicsQueries.Cast(body.ActiveCollider, castPosition, castRotation, body.Settings.SkinWidth, direction,
+            if (!MobilityPhysics.Cast(body.ActiveCollider, castPosition, castRotation, body.Settings.SkinWidth, direction,
                     distance, body.Settings.CollidableLayers, QueryTriggerInteraction.Ignore,
                     body.Context.SweepResults, body.ShouldCollideWith, out RaycastHit hit))
             {
@@ -187,7 +188,7 @@ namespace Character.Mobility
             ref RaycastHit bestHit,
             ref HitStabilityReport bestStability)
         {
-            if (!CharacterPhysicsQueries.Raycast(origin, direction, distance, body.Settings.CollidableLayers,
+            if (!MobilityPhysics.Raycast(origin, direction, distance, body.Settings.CollidableLayers,
                     QueryTriggerInteraction.Ignore, body.Context.SweepResults, body.ShouldCollideWith,
                     out RaycastHit hit))
             {
@@ -221,7 +222,7 @@ namespace Character.Mobility
             }
 
             Vector3 up =
-                body.Basis.Up.normalized;
+                body.Orientation.Up.normalized;
 
             Vector3 down =
                 -up;
@@ -230,7 +231,7 @@ namespace Character.Mobility
                 snapDistance +
                 body.Settings.SkinWidth;
 
-            if (!CharacterPhysicsQueries.Cast(
+            if (!MobilityPhysics.Cast(
                     body.ActiveCollider,
                     position,
                     rotation,

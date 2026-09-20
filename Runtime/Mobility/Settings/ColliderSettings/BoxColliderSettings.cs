@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using UnityEngine;
+using UnityEngine.LowLevelPhysics;
 
 namespace Character.Mobility
 {
@@ -7,8 +8,10 @@ namespace Character.Mobility
     /// Authoring data for the box variant of CharacterBody.
     /// </summary>
     [Serializable]
-    public struct BoxGeometrySettings : IGeometrySettings<BoxCollider>
+    public struct BoxColliderSettings : IColliderSettings<BoxCollider>
     {
+        public GeometryType GeometryType => UnityEngine.LowLevelPhysics.GeometryType.Box;
+
         public Vector3 Center { get; set; }
         public Vector3 Size;
 
@@ -25,7 +28,7 @@ namespace Character.Mobility
             collider.size = Size;
         }
 
-        public static BoxGeometrySettings Default => new() {
+        public static BoxColliderSettings Default => new() {
             Center = new Vector3(0f, 1f, 0f),
             Size = new Vector3(1f, 2f, 1f)
         };

@@ -14,7 +14,7 @@ namespace Character.Mobility
     /// The initial basis may be created from a Transform, but afterward it is
     /// semantic CharacterBody state.
     /// </summary>
-    public readonly struct CharacterBodyBasis
+    public readonly struct Orientation
     {
         private const float DegenerateEpsilon = 0.0001f;
 
@@ -52,12 +52,12 @@ namespace Character.Mobility
             }
         }
 
-        private CharacterBodyBasis(Vector3 up, Vector3 forward) {
+        private Orientation(Vector3 up, Vector3 forward) {
             Up = up;
             Forward = forward;
         }
         
-        public static CharacterBodyBasis FromTransform(
+        public static Orientation FromTransform(
             Transform transform)
         {
             if (transform == null)
@@ -95,7 +95,7 @@ namespace Character.Mobility
                 forward.Normalize();
             }
 
-            return new CharacterBodyBasis(
+            return new Orientation(
                 up,
                 forward
             );
@@ -105,7 +105,7 @@ namespace Character.Mobility
         /// Returns a new basis with a different semantic Up direction while
         /// preserving the current facing direction as much as possible.
         /// </summary>
-        public CharacterBodyBasis WithUpDirection(Vector3 newUp) {
+        public Orientation WithUpDirection(Vector3 newUp) {
             if (newUp.sqrMagnitude < DegenerateEpsilon) {
                 return this;
             }
@@ -125,7 +125,7 @@ namespace Character.Mobility
                 newForward.Normalize();
             }
 
-            return new CharacterBodyBasis(
+            return new Orientation(
                 newUp,
                 newForward
             );
@@ -135,7 +135,7 @@ namespace Character.Mobility
         /// Returns a new basis with a different semantic facing direction while
         /// preserving the current Up direction.
         /// </summary>
-        public CharacterBodyBasis WithForwardDirection(Vector3 newForward) {
+        public Orientation WithForwardDirection(Vector3 newForward) {
             Vector3 projected = ProjectOntoPlane(newForward, Up);
 
             if (projected.sqrMagnitude < DegenerateEpsilon) {
@@ -144,7 +144,7 @@ namespace Character.Mobility
 
             projected.Normalize();
 
-            return new CharacterBodyBasis(
+            return new Orientation(
                 Up,
                 projected
             );

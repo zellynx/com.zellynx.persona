@@ -14,7 +14,7 @@ namespace Character.Mobility
         {
             CharacterBodyCollisionFlags flags = CharacterBodyCollisionFlags.None;
             Vector3 remaining = worldVelocity * deltaTime;
-            Vector3 up = body.Basis.Up.normalized;
+            Vector3 up = body.Orientation.Up.normalized;
             bool wasStableOnGround = groundingReport.IsStableOnGround;
             bool allowLedgeSnap = body.Settings.StepAndSlopeSettings.MaxVelocityForLedgeSnap <= 0f
                 || Vector3.ProjectOnPlane(worldVelocity, up).magnitude <= body.Settings.StepAndSlopeSettings.MaxVelocityForLedgeSnap;
@@ -29,7 +29,7 @@ namespace Character.Mobility
                     break;
                 }
 
-                if (!CharacterPhysicsQueries.Cast(body.ActiveCollider, position, rotation, body.Settings.SkinWidth,
+                if (!MobilityPhysics.Cast(body.ActiveCollider, position, rotation, body.Settings.SkinWidth,
                         remaining.normalized, distance + body.Settings.SkinWidth, body.Settings.CollidableLayers,
                         QueryTriggerInteraction.Ignore, body.Context.SweepResults, body.ShouldCollideWith,
                         out RaycastHit hit))
@@ -53,7 +53,7 @@ namespace Character.Mobility
                     position = steppedPosition;
                     groundingReport = steppedGroundingReport;
                     flags |= CharacterBodyCollisionFlags.Below;
-                    worldVelocity = VelocityProjectionSolver.ProjectForGrounding(worldVelocity, groundingReport.GroundNormal, body.Basis.Up);
+                    worldVelocity = MobilityMath.ProjectVelocityForGrounding(worldVelocity, groundingReport.GroundNormal, body.Orientation.Up);
                     remaining = worldVelocity * deltaTime;
                     continue;
                 }
@@ -73,13 +73,15 @@ namespace Character.Mobility
                     flags |= CharacterBodyCollisionFlags.Sides;
                 }
 
-                if (hasPreviousObstruction)
-                {
-                    worldVelocity = VelocityProjectionSolver.ProjectOnHits(worldVelocity, previousObstructionNormal, hit.normal, up);
+                if (hasPreviousObstruction) {
+                    worldVelocity = ProjectVelocityOnHits(
+                        worldVelocity,
+                        previousObstructionNormal,
+                        hit.normal,
+                        up);
                 }
-                else
-                {
-                    worldVelocity = VelocityProjectionSolver.ProjectOnHit(worldVelocity, hit.normal);
+                else {
+                    worldVelocity = Vector3.ProjectOnPlane(worldVelocity, hit.normal);
                     hasPreviousObstruction = true;
                     previousObstructionNormal = hit.normal;
                 }
@@ -107,6 +109,30 @@ namespace Character.Mobility
             }
 
             return flags;
+        }
+
+        private static Vector3 ProjectVelocityOnHits(
+            Vector3 velocity,
+            Vector3 firstNormal,
+            Vector3 secondNormal,
+            Vector3 up)
+        {
+            Vector3 creaseDirection = Vector3.Cross(firstNormal, secondNormal);
+
+            if (creaseDirection.sqrMagnitude <= 0.0001f)
+            {
+                return Vector3.ProjectOnPlane(velocity, secondNormal);
+            }
+
+            creaseDirection.Normalize();
+
+            if (Mathf.Abs(Vector3.Dot(creaseDirection, up)) > 0.99f)
+            {
+                return Vector3.zero;
+            }
+
+            float magnitudeAlongCrease = Vector3.Dot(velocity, creaseDirection);
+            return creaseDirection * magnitudeAlongCrease;
         }
     }
 }

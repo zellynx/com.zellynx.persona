@@ -7,7 +7,7 @@ namespace Character.Mobility
         public static void ResolveOverlaps(CharacterBody body, ref Vector3 position, Quaternion rotation)
         {
             Collider shape = body.ActiveCollider;
-            int count = CharacterPhysicsQueries.OverlapNonAlloc(shape, position, rotation, 0f,
+            int count = MobilityPhysics.OverlapNonAlloc(shape, position, rotation, 0f,
                 body.Context.OverlapResults, body.Settings.CollidableLayers, QueryTriggerInteraction.Ignore);
 
             for (int iteration = 0; iteration < body.Settings.MaxDecollisionIterations; iteration++)
@@ -22,7 +22,7 @@ namespace Character.Mobility
                         continue;
                     }
 
-                    if (CharacterPhysicsQueries.ComputePenetration(body.ActiveCollider, position, rotation, other,
+                    if (MobilityPhysics.ComputePenetration(body.ActiveCollider, position, rotation, other,
                             other.transform.position, other.transform.rotation, out var direction, out var distance)) {
                         position += direction * (distance + body.Settings.SkinWidth);
                         moved = true;
@@ -30,7 +30,7 @@ namespace Character.Mobility
                         Rigidbody otherBody = other.attachedRigidbody;
                         if (body.Settings.EnableRigidbodyInteraction && otherBody != null && !otherBody.isKinematic)
                         {
-                            Vector3 hitPoint = CharacterPhysicsQueries.GetSupportPoint(shape, position, rotation, -direction);
+                            Vector3 hitPoint = MobilityPhysics.GetSupportPoint(shape, position, rotation, -direction);
                             CharacterBody otherCharacterBody = otherBody.GetComponent<CharacterBody>();
                             CharacterRigidbodyHit rigidbodyHit = new CharacterRigidbodyHit
                             {
@@ -40,7 +40,7 @@ namespace Character.Mobility
                                 HitNormal = direction,
                                 HitVelocity = body.Velocity.Linear,
                                 RigidbodyVelocity = otherBody.GetPointVelocity(hitPoint),
-                                StableOnHit = Vector3.Dot(direction, body.Basis.Up) > 0.5f,
+                                StableOnHit = Vector3.Dot(direction, body.Orientation.Up) > 0.5f,
                             };
                             if (body.ModifyRigidbodyHit != null)
                             {
@@ -57,7 +57,7 @@ namespace Character.Mobility
                     break;
                 }
 
-                count = CharacterPhysicsQueries.OverlapNonAlloc(shape, position, rotation,0f,
+                count = MobilityPhysics.OverlapNonAlloc(shape, position, rotation,0f,
                     body.Context.OverlapResults, body.Settings.CollidableLayers, QueryTriggerInteraction.Ignore);
             }
         }

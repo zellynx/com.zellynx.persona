@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.LowLevelPhysics;
 
 namespace Character.Mobility.Editor
 {
@@ -34,15 +35,15 @@ namespace Character.Mobility.Editor
             
             EditorGUILayout.Space();
 
-            var geometryType = (GeometryTypes)_geometryType.enumValueIndex;
+            var geometryType = (GeometryType)_geometryType.enumValueIndex;
             switch (geometryType) {
-                case GeometryTypes.Capsule:
+                case GeometryType.Capsule:
                     EditorGUILayout.PropertyField(_capsuleGeometrySettings, new GUIContent("Capsule Shape"), true);
                     break;
-                case GeometryTypes.Sphere:
+                case GeometryType.Sphere:
                     EditorGUILayout.PropertyField(_sphereGeometrySettings, new GUIContent("Sphere Shape"), true);
                     break;
-                case GeometryTypes.Box:
+                case GeometryType.Box:
                     EditorGUILayout.PropertyField(_boxGeometrySettings, new GUIContent("Box Shape"), true);
                     break;
             }
@@ -50,7 +51,7 @@ namespace Character.Mobility.Editor
             EditorGUILayout.Space();
             EditorGUILayout.PropertyField(_settings, new GUIContent("Settings"), true);
 
-            if (geometryType == GeometryTypes.Capsule) {
+            if (geometryType == GeometryType.Capsule) {
                 EditorGUILayout.HelpBox("CharacterBody uses an upright Y-axis capsule for Character locomotion.", MessageType.Info);
             }
             else {

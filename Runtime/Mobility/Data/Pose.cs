@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace Character.Mobility
 {
@@ -13,20 +13,8 @@ namespace Character.Mobility
         public Vector3 Position;
 
         /// <summary>
-        /// World-space orientation.
+        /// World-space attitude.
         /// </summary>
-        public Quaternion Orientation;
-    }
-    
-    /// <summary>
-    /// Requests CharacterBody to perform a collision-aware simulation toward
-    /// the supplied target pose.
-    ///
-    /// This is not Teleport.
-    /// </summary>
-    public struct PoseUpdateRequest
-    {
-        public Pose Pose;
-        public float DeltaTime;
+        public Quaternion Attitude;
     }
 }

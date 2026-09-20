@@ -38,8 +38,8 @@ namespace CharacterMovementFramework
             input = Vector3.ClampMagnitude(input, 1f);
 
             Vector3 movementDirection =
-                _body.Basis.Right * input.x +
-                _body.Basis.Forward * input.z;
+                _body.Orientation.Right * input.x +
+                _body.Orientation.Forward * input.z;
 
             if (movementDirection.sqrMagnitude > 1f)
             {
@@ -53,7 +53,7 @@ namespace CharacterMovementFramework
                 Input.GetButton("Jump"))
             {
                 requestedVelocity +=
-                    _body.Basis.Up * _jumpSpeed;
+                    _body.Orientation.Up * _jumpSpeed;
 
                 _body.ForceUnground(0.1f);
             }

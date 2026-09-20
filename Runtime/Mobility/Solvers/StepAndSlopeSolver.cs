@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.LowLevelPhysics;
 
 namespace Character.Mobility
 {
@@ -10,10 +11,10 @@ namespace Character.Mobility
                 return characterVelocity;
             }
 
-            return VelocityProjectionSolver.ProjectForGrounding(
+            return MobilityMath.ProjectVelocityForGrounding(
                 characterVelocity,
                 groundingReport.GroundNormal,
-                body.Basis.Up
+                body.Orientation.Up
             );
         }
 
@@ -41,7 +42,7 @@ namespace Character.Mobility
                 return false;
             }
 
-            Vector3 up = body.Basis.Up.normalized;
+            Vector3 up = body.Orientation.Up.normalized;
             float stepOffset = body.GetEffectiveStepOffset(currentPosition, rotation);
             if (stepOffset <= 0f)
             {
@@ -55,20 +56,20 @@ namespace Character.Mobility
             }
 
             Vector3 stepUpPosition = currentPosition + (up * (stepOffset + body.SkinWidth));
-            if (CharacterPhysicsQueries.Check(body.ActiveCollider, stepUpPosition, rotation, body.Settings.SkinWidth,
+            if (MobilityPhysics.Check(body.ActiveCollider, stepUpPosition, rotation, body.Settings.SkinWidth,
                     body.Settings.CollidableLayers, QueryTriggerInteraction.Ignore,
                     body.Context.OverlapResults, body.ShouldCollideWith))
             {
                 return false;
             }
 
-            float forwardDistanceScalar = body.GeometryType == GeometryTypes.Box
-                ? Mathf.Max(CharacterPhysicsQueries.GetSupportDistance(body.ActiveCollider, currentPosition, rotation,
-                        MobilityMath.ProjectOnPlane(movementDirection, up).normalized), body.Settings.SkinWidth * 2f)
+            float forwardDistanceScalar = body.GeometryType == GeometryType.Box
+                ? Mathf.Max(MobilityPhysics.GetSupportDistance(body.ActiveCollider, currentPosition, rotation,
+                        Vector3.ProjectOnPlane(movementDirection, up).normalized), body.Settings.SkinWidth * 2f)
                 : Mathf.Max(body.Settings.SkinWidth * 2f, 0.03f);
             Vector3 forwardDistance = movementDirection.normalized * forwardDistanceScalar;
             Vector3 stepForwardPosition = stepUpPosition + forwardDistance;
-            if (CharacterPhysicsQueries.Check(body.ActiveCollider, stepForwardPosition, rotation, body.Settings.SkinWidth,
+            if (MobilityPhysics.Check(body.ActiveCollider, stepForwardPosition, rotation, body.Settings.SkinWidth,
                     body.Settings.CollidableLayers, QueryTriggerInteraction.Ignore,
                     body.Context.OverlapResults, body.ShouldCollideWith))
             {
@@ -88,7 +89,7 @@ namespace Character.Mobility
                 steppedPosition += snapOffset;
             }
 
-            if (body.GeometryType == GeometryTypes.Box)
+            if (body.GeometryType == GeometryType.Box)
             {
                 CharacterGroundingReport validationGround = GroundQuerySolver.ProbeGround(body, steppedPosition, rotation, body.Settings.StepAndSlopeSettings.GroundDetectionExtraDistance, allowLedgeSnap);
                 if (!validationGround.IsStableOnGround)

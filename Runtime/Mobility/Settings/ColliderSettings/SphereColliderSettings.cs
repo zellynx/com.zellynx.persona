@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using UnityEngine;
+using UnityEngine.LowLevelPhysics;
 
 namespace Character.Mobility
 {
@@ -7,8 +8,10 @@ namespace Character.Mobility
     /// Authoring data for the sphere variant of CharacterBody.
     /// </summary>
     [Serializable]
-    public struct SphereGeometrySettings : IGeometrySettings<SphereCollider>
+    public struct SphereColliderSettings : IColliderSettings<SphereCollider>
     {
+        public GeometryType GeometryType => UnityEngine.LowLevelPhysics.GeometryType.Sphere;
+
         public Vector3 Center { get; set; }
         [Min(0.01f)] public float Radius;
 
@@ -23,7 +26,7 @@ namespace Character.Mobility
             collider.center = Center;
         }
 
-        public static SphereGeometrySettings Default => new() {
+        public static SphereColliderSettings Default => new() {
             Center = new Vector3(0f, 0.5f, 0f),
             Radius = 0.5f
         };

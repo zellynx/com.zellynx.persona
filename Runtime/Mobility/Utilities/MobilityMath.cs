@@ -4,24 +4,24 @@ namespace Character.Mobility
 {
     internal static class MobilityMath
     {
-        public static Vector3 ProjectOnPlane(Vector3 vector, Vector3 planeNormal)
-        {
-            return vector - Vector3.Project(vector, planeNormal);
-        }
-
-        public static float GetSlopeAngle(Vector3 normal, Vector3 up)
-        {
-            return Vector3.Angle(normal, up);
-        }
-
         public static bool IsStableNormal(Vector3 normal, Vector3 up, float slopeLimit)
         {
             return Vector3.Angle(normal, up) <= slopeLimit;
         }
 
-        public static Quaternion ResolveRotation(Quaternion current, Quaternion target, bool slerp)
+        public static Vector3 ProjectVelocityForGrounding(
+            Vector3 velocity,
+            Vector3 groundNormal,
+            Vector3 up)
         {
-            return slerp ? Quaternion.Slerp(current, target, 1f) : target;
+            Vector3 tangent = Vector3.ProjectOnPlane(velocity, groundNormal);
+
+            if (Vector3.Dot(tangent, up) > 0f)
+            {
+                tangent = Vector3.ProjectOnPlane(tangent, up);
+            }
+
+            return tangent;
         }
 
         /// <summary>

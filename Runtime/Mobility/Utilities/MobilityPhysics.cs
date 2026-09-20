@@ -11,7 +11,7 @@ namespace Character.Mobility
     /// CharacterBody uses an upright Y-axis CapsuleCollider: the LowLevelPhysics CapsuleGeometry
     /// supplies Radius/HalfLength, while the Y orientation comes from the CharacterBody invariant.
     /// </summary>
-    internal static class CharacterPhysicsQueries
+    internal static class MobilityPhysics
     {
         // ------------------------------------------------------------------
         // LowLevelPhysics geometry access
