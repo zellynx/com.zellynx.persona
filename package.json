@@ -1,0 +1,15 @@
+{
+	"name": "com.zellynx.charactertools",
+	"displayName":"Character Tools",
+	"version": "1.0.0",
+	"unity": "6000.4",
+	"description": "Character Tools is a modular Unity utility package designed to breathe life, awareness, and fluid articulation into your game's characters.",	
+	"author": {
+		"name": "zellynx"
+	},
+	"samples": [{
+		"displayName": "FPS Character Controller",
+      		"description": "An introductory character controller.",
+      		"path": "Samples~/FPSCharacterController/"
+	}]
+}

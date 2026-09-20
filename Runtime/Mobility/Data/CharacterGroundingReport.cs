@@ -1,0 +1,16 @@
+using UnityEngine;
+
+namespace Character.Mobility
+{
+    public struct CharacterGroundingReport
+    {
+        public bool FoundAnyGround;
+        public bool IsStableOnGround;
+        public bool SnappingPrevented;
+        public Vector3 GroundNormal;
+        public Vector3 InnerGroundNormal;
+        public Vector3 OuterGroundNormal;
+        public Collider GroundCollider;
+        public Vector3 GroundPoint;
+    }
+}
